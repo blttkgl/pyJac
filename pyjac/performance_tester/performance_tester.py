@@ -22,7 +22,7 @@ import numpy as np
 
 try:
     import cantera as ct
-    from cantera import ck2cti
+    from cantera import ck2yaml
 except ImportError:
     print('Error: Cantera must be installed.')
     raise
@@ -240,14 +240,14 @@ def performance_tester(home, work_dir, use_old_opt):
         sys.exit(-1)
     for name in os.listdir(work_dir):
         if os.path.isdir(os.path.join(work_dir, name)):
-            #check for cti
+            #check for yaml
             files = [f for f in os.listdir(os.path.join(work_dir, name)) if
                         os.path.isfile(os.path.join(work_dir, name, f))]
             for f in files:
-                if f.endswith('.cti'):
+                if f.endswith('.yaml'):
                     mechanism_list[name] = {}
                     mechanism_list[name]['mech'] = f
-                    mechanism_list[name]['chemkin'] = f.replace('.cti', '.dat')
+                    mechanism_list[name]['chemkin'] = f.replace('.yaml', '.dat')
                     gas = ct.Solution(os.path.join(work_dir, name, f))
                     mechanism_list[name]['ns'] = gas.n_species
 

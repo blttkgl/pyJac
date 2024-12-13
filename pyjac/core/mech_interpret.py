@@ -889,7 +889,7 @@ def read_mech_ct(filename=None, gas=None):
     Parameters
     ----------
     filename : str
-        Reaction mechanism filename (e.g. 'mech.cti'). Optional.
+        Reaction mechanism filename (e.g. 'mech.yaml'). Optional.
     gas : `cantera.Solution` object
         Existing Cantera Solution object to be used. Optional.
 
@@ -989,125 +989,9 @@ def read_mech_ct(filename=None, gas=None):
         return reac
 
     for rxn in gas.reactions():
+        # https://cantera.org/dev/yaml/reactions.html
 
-        if isinstance(rxn, ct.ThreeBodyReaction):
-            # Instantiate internal reaction based on Cantera Reaction data.
-            reac = chem.ReacInfo(rxn.reversible,
-                                 list(rxn.reactants.keys()),
-                                 list(rxn.reactants.values()),
-                                 list(rxn.products.keys()),
-                                 list(rxn.products.values()),
-                                 rxn.rate.pre_exponential_factor,
-                                 rxn.rate.temperature_exponent,
-                                 rxn.rate.activation_energy * E_fac
-                                 )
-            reac.thd_body = True
-            reac = handle_effiencies(reac, rxn)
-
-        elif isinstance(rxn, ct.FalloffReaction) and \
-             not isinstance(rxn, ct.ChemicallyActivatedReaction):
-            reac = chem.ReacInfo(rxn.reversible,
-                                 list(rxn.reactants.keys()),
-                                 list(rxn.reactants.values()),
-                                 list(rxn.products.keys()),
-                                 list(rxn.products.values()),
-                                 rxn.high_rate.pre_exponential_factor,
-                                 rxn.high_rate.temperature_exponent,
-                                 rxn.high_rate.activation_energy * E_fac
-                                 )
-            reac.pdep = True
-            reac = handle_effiencies(reac, rxn)
-
-            reac.low = [rxn.low_rate.pre_exponential_factor,
-                        rxn.low_rate.temperature_exponent,
-                        rxn.low_rate.activation_energy * E_fac
-                        ]
-
-            if rxn.falloff.type == 'Troe':
-                reac.troe = True
-                reac.troe_par = rxn.falloff.parameters.tolist()
-                do_warn = False
-                if reac.troe_par[1] == 0:
-                    reac.troe_par[1] = 1e-30
-                    do_warn = True
-                if reac.troe_par[2] == 0:
-                    reac.troe_par[2] = 1e-30
-                    do_warn = True
-                if do_warn:
-                    logging.warn('Troe parameters in reaction {} modified to avoid'
-                                 ' division by zero!.'.format(len(reacs)))
-            elif rxn.falloff.type == 'SRI':
-                reac.sri = True
-                reac.sri_par = rxn.falloff.parameters.tolist()
-
-        elif isinstance(rxn, ct.ChemicallyActivatedReaction):
-            reac = chem.ReacInfo(rxn.reversible,
-                                 list(rxn.reactants.keys()),
-                                 list(rxn.reactants.values()),
-                                 list(rxn.products.keys()),
-                                 list(rxn.products.values()),
-                                 rxn.low_rate.pre_exponential_factor,
-                                 rxn.low_rate.temperature_exponent,
-                                 rxn.low_rate.activation_energy * E_fac
-                                 )
-            reac.pdep = True
-            reac = handle_effiencies(reac, rxn)
-
-            reac.high = [rxn.high_rate.pre_exponential_factor,
-                         rxn.high_rate.temperature_exponent,
-                         rxn.high_rate.activation_energy * E_fac
-                         ]
-
-            if rxn.falloff.type == 'Troe':
-                reac.troe = True
-                reac.troe_par = rxn.falloff.parameters.tolist()
-                do_warn = False
-                if reac.troe_par[1] == 0:
-                    reac.troe_par[1] = 1e-30
-                    do_warn = True
-                if reac.troe_par[2] == 0:
-                    reac.troe_par[2] = 1e-30
-                    do_warn = True
-                if do_warn:
-                    logging.warn('Troe parameters in reaction {} modified to avoid'
-                                    ' division by zero!.'.format(len(reacs)))
-            elif rxn.falloff.type == 'SRI':
-                reac.sri = True
-                reac.sri_par = rxn.falloff.parameters.tolist()
-
-        elif isinstance(rxn, ct.PlogReaction):
-            reac = chem.ReacInfo(rxn.reversible,
-                                 list(rxn.reactants.keys()),
-                                 list(rxn.reactants.values()),
-                                 list(rxn.products.keys()),
-                                 list(rxn.products.values()),
-                                 0.0, 0.0, 0.0
-                                 )
-            reac.plog = True
-            reac.plog_par = []
-            for rate in rxn.rates:
-                pars = [rate[0], rate[1].pre_exponential_factor,
-                        rate[1].temperature_exponent,
-                        rate[1].activation_energy * E_fac
-                        ]
-                reac.plog_par.append(pars)
-
-        elif isinstance(rxn, ct.ChebyshevReaction):
-            reac = chem.ReacInfo(rxn.reversible,
-                                 list(rxn.reactants.keys()),
-                                 list(rxn.reactants.values()),
-                                 list(rxn.products.keys()),
-                                 list(rxn.products.values()),
-                                 0.0, 0.0, 0.0
-                                 )
-            reac.cheb = True
-            reac.cheb_n_temp = rxn.nTemperature
-            reac.cheb_n_pres = rxn.nPressure
-            reac.cheb_plim = [rxn.Pmin, rxn.Pmax]
-            reac.cheb_tlim = [rxn.Tmin, rxn.Tmax]
-            reac.cheb_par = rxn.coeffs
-
-        elif isinstance(rxn, ct.ElementaryReaction):
+        if (rxn.reaction_type=='Arrhenius'):
             # Instantiate internal reaction based on Cantera Reaction data.
 
             # Ensure no reactions with zero pre-exponential factor allowed
@@ -1123,7 +1007,120 @@ def read_mech_ct(filename=None, gas=None):
                                  rxn.rate.temperature_exponent,
                                  rxn.rate.activation_energy * E_fac
                                  )
+        elif ('three-body' in rxn.reaction_type):
+            # Instantiate internal reaction based on Cantera Reaction data.
+            reac = chem.ReacInfo(rxn.reversible,
+                                 list(rxn.reactants.keys()),
+                                 list(rxn.reactants.values()),
+                                 list(rxn.products.keys()),
+                                 list(rxn.products.values()),
+                                 rxn.rate.pre_exponential_factor,
+                                 rxn.rate.temperature_exponent,
+                                 rxn.rate.activation_energy * E_fac
+                                 )
+            reac.thd_body = True
+            reac = handle_effiencies(reac, rxn)
+        elif ('chemically-activated' in rxn.reaction_type):
+            #ipdb.set_trace()
+            reac = chem.ReacInfo(rxn.reversible,
+                                 list(rxn.reactants.keys()),
+                                 list(rxn.reactants.values()),
+                                 list(rxn.products.keys()),
+                                 list(rxn.products.values()),
+                                 rxn.rate.low_rate.pre_exponential_factor,
+                                 rxn.rate.low_rate.temperature_exponent,
+                                 rxn.rate.low_rate.activation_energy * E_fac
+                                 )
+            reac.pdep = True
+            reac = handle_effiencies(reac, rxn)
 
+            reac.high = [rxn.rate.high_rate.pre_exponential_factor,
+                         rxn.rate.high_rate.temperature_exponent,
+                         rxn.rate.high_rate.activation_energy * E_fac
+                         ]
+
+            if rxn.reaction_type.split('-')[-1] == 'Troe':
+                reac.troe = True
+                reac.troe_par = rxn.rate.falloff_coeffs.tolist()
+                do_warn = False
+                if reac.troe_par[1] == 0:
+                    reac.troe_par[1] = 1e-30
+                    do_warn = True
+                if reac.troe_par[2] == 0:
+                    reac.troe_par[2] = 1e-30
+                    do_warn = True
+                if do_warn:
+                    logging.warn('Troe parameters in reaction {} modified to avoid'
+                                    ' division by zero!.'.format(len(reacs)))
+            if rxn.reaction_type.split('-')[-1] == 'SRI':
+                reac.sri = True
+                reac.sri_par = rxn.rate.falloff_coeffs.tolist()
+
+        elif ('falloff' in rxn.reaction_type):
+            reac = chem.ReacInfo(rxn.reversible,
+                                 list(rxn.reactants.keys()),
+                                 list(rxn.reactants.values()),
+                                 list(rxn.products.keys()),
+                                 list(rxn.products.values()),
+                                 rxn.rate.high_rate.pre_exponential_factor,
+                                 rxn.rate.high_rate.temperature_exponent,
+                                 rxn.rate.high_rate.activation_energy * E_fac
+                                 )
+            reac.pdep = True
+            reac = handle_effiencies(reac, rxn)
+
+            reac.low = [rxn.rate.low_rate.pre_exponential_factor,
+                        rxn.rate.low_rate.temperature_exponent,
+                        rxn.rate.low_rate.activation_energy * E_fac
+                        ]
+            if rxn.reaction_type.split('-')[-1] == 'Troe':
+                reac.troe = True
+                reac.troe_par = rxn.rate.falloff_coeffs.tolist()
+                do_warn = False
+                if reac.troe_par[1] == 0:
+                    reac.troe_par[1] = 1e-30
+                    do_warn = True
+                if reac.troe_par[2] == 0:
+                    reac.troe_par[2] = 1e-30
+                    do_warn = True
+                if do_warn:
+                    logging.warn('Troe parameters in reaction {} modified to avoid'
+                                 ' division by zero!.'.format(len(reacs)))
+            if rxn.reaction_type.split('-')[-1] == 'SRI':
+                reac.sri = True
+                reac.sri_par = rxn.falloff.parameters.tolist()
+
+        elif (rxn.reaction_type=='pressure-dependent-Arrhenius'):
+            reac = chem.ReacInfo(rxn.reversible,
+                                 list(rxn.reactants.keys()),
+                                 list(rxn.reactants.values()),
+                                 list(rxn.products.keys()),
+                                 list(rxn.products.values()),
+                                 0.0, 0.0, 0.0
+                                 )
+            reac.plog = True
+            reac.plog_par = []
+            for rate in rxn.rate.rates:
+                pars = [rate[0], rate[1].pre_exponential_factor,
+                        rate[1].temperature_exponent,
+                        rate[1].activation_energy * E_fac
+                        ]
+                reac.plog_par.append(pars)
+
+        elif (rxn.reaction_type=='Chebyshev'):
+            reac = chem.ReacInfo(rxn.reversible,
+                                 list(rxn.reactants.keys()),
+                                 list(rxn.reactants.values()),
+                                 list(rxn.products.keys()),
+                                 list(rxn.products.values()),
+                                 0.0, 0.0, 0.0
+                                 )
+            reac.cheb = True
+            reac.cheb_n_temp = rxn.rate.n_temperature
+            reac.cheb_n_pres = rxn.rate.n_pressure
+            reac.cheb_plim = [rxn.rate.pressure_range[0], rxn.rate.pressure_range[1]]
+            reac.cheb_tlim = [rxn.rate.temperature_range[0], rxn.rate.temperature_range[1]]
+            reac.cheb_par = rxn.rate.data
         else:
             print('Error: unsupported reaction.')
             sys.exit(1)

@@ -3487,7 +3487,7 @@ def create_jacobian(lang, mech_name=None, therm_name=None, gas=None, optimize_ca
 
     # Interpret reaction mechanism file, depending on Cantera or
     # Chemkin format.
-    if gas is not None or mech_name.endswith(tuple(['.cti', '.xml'])):
+    if gas is not None or mech_name.endswith(tuple(['.yaml'])):
         elems, specs, reacs = mech.read_mech_ct(mech_name, gas)
     else:
         elems, specs, reacs = mech.read_mech(mech_name, therm_name)
